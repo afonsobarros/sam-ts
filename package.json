@@ -12,12 +12,23 @@
     "lint": "eslint --ext .js,.jsx,.ts,.json . --fix",
     "watch": "webpack-cli -w",
     "serve": "sam local start-api",
-    "test": "jest --silent"
+    "test": "jest --silent",
+    "pre-commit": "lint-staged --allow-empty",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,json}": [
+      "eslint --fix",
+      "git add"
+    ],
+    "*": "git add"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@commitlint/cli": "^17.6.1",
+    "@commitlint/config-conventional": "^17.6.1",
     "@types/aws-lambda": "^8.10.114",
     "@types/jest": "^29.5.1",
     "@types/node": "^18.16.3",
@@ -32,7 +43,9 @@
     "eslint-plugin-chai-friendly": "^0.7.2",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-json": "^3.1.0",
+    "husky": "^8.0.0",
     "jest": "^29.5.0",
+    "lint-staged": "^13.2.2",
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.2",
     "typescript": "^5.0.4",
