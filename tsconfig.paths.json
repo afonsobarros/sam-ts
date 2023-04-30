@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@functions/*": ["src/functions/*"],
+      "@enums/*": ["*", "src/enums/*"],
+      "@config/*": ["*", "src/config/*"],
+    }
+  }
+}
