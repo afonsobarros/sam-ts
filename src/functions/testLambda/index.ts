@@ -1,7 +1,7 @@
 import { APIGatewayEvent } from 'aws-lambda';
 
 export const handler = async (event: APIGatewayEvent) => {
-  console.log('incoming event is', JSON.stringify(event));
+  console.info('incoming event is', JSON.stringify(event));
 
   const response = {
     statusCode: 200,
