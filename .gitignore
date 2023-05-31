@@ -27,3 +27,6 @@ npm-debug.log
 # Optional ESLint cache
 .eslintcache
 .DS_Store
+
+# Jest coverage reports
+/coverage
