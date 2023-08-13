@@ -1,0 +1,109 @@
+name: Dependabot Update
+
+on:
+  schedule:
+    - cron: "0 0 * * 1" # Runs at 00:00, only on Mondays
+  workflow_dispatch: # or on demand if requested
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  config-branch:
+    name: Config Branch
+    runs-on: ubuntu-latest
+    outputs:
+      branch-name: ${{ steps.set-branch-name.outputs.BRANCH_NAME }}
+      current-date: ${{ steps.set-current-date.outputs.CURRENT_DATE }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set current date
+        id: set-current-date
+        run: |
+          echo "CURRENT_DATE=$(date --rfc-3339=date)" >> "$GITHUB_OUTPUT"
+
+      - name: Set branch name
+        id: set-branch-name
+        run: |
+          echo "BRANCH_NAME=feature/dependabot-update-${{ steps.set-current-date.outputs.CURRENT_DATE }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create branch
+        env:
+          BRANCH_NAME: ${{ steps.set-branch-name.outputs.BRANCH_NAME }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "dependabot[bot]"
+          git config --global user.email "dependabot@users.noreply.github.com"
+          git checkout -b $BRANCH_NAME
+          git push --set-upstream origin $BRANCH_NAME
+
+  update-dependencies:
+    name: Update dependencies
+    runs-on: ubuntu-latest
+    needs: config-branch
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: "Read .nvmrc"
+        run: echo NODE_VERSION=`cat .nvmrc` >> $GITHUB_ENV
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://npm.pkg.github.com"
+
+      - name: "Backend: Update all packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "dependabot[bot]" # Configure the Git user name
+          git config --global user.email "dependabot@users.noreply.github.com" # Configure the Git user email
+          git fetch --all && git checkout ${{ needs.config-branch.outputs.branch-name }}
+          npm update --save # Update the packages and save the changes
+          git add package-lock.json package.json # Add the updated package-lock.json and package.json files
+          git commit -m "build(deps): backend dependabot update ${{ needs.config-branch.outputs.current-date }}" # Commit the changes with a descriptive message
+          git push
+
+  create-pr:
+    name: Create Pull Request
+    runs-on: ubuntu-latest
+    needs: [config-branch, update-dependencies]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+  
+      - name: "Checkout code updates"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ needs.config-branch.outputs.branch-name }}
+        run: |
+          git config --global user.name "dependabot[bot]" # Configure the Git user name
+          git config --global user.email "dependabot@users.noreply.github.com" # Configure the Git user email
+          git fetch --all && git checkout ${{ env.BRANCH_NAME }}
+
+      - name: Create pull request
+        uses: actions/github-script@v4 # Step to create a pull request using the GitHub API with the current date on title and description
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ needs.config-branch.outputs.branch-name }}
+          CURRENT_DATE: ${{ needs.config-branch.outputs.current-date }}
+        with:
+          script: |
+            const title = "build(deps): dependabot update ${{ env.CURRENT_DATE }}" // Set the PR title
+            const body = "## Changes\nThis PR updates all dependencies to corresponding latest versions - ${{ env.CURRENT_DATE }}"
+            const { data } = await github.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              head: "${{ env.BRANCH_NAME }}",
+              base: "main"
+            })
